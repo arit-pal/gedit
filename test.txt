@@ -1,3 +1,4 @@
-Hello, Gedit!
+Hello, Gedit! Hehe!
 This is the second line.
 Welcome to your new editor.
+This is very good.
