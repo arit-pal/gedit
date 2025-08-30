@@ -3,15 +3,18 @@ package editor
 import (
 	"bufio"
 	"os"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
 
 type Editor struct {
-	screen  tcell.Screen
-	content [][]rune
-	cursorX int
-	cursorY int
+	screen        tcell.Screen
+	content       [][]rune
+	cursorX       int
+	cursorY       int
+	fileName      string
+	statusMessage string
 }
 
 func NewEditor(fileName string) (*Editor, error) {
@@ -26,7 +29,7 @@ func NewEditor(fileName string) (*Editor, error) {
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 	screen.SetStyle(defStyle)
 
-	editor := &Editor{screen: screen}
+	editor := &Editor{screen: screen, fileName: fileName}
 	if err := editor.loadFile(fileName); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -34,6 +37,22 @@ func NewEditor(fileName string) (*Editor, error) {
 	}
 
 	return editor, nil
+}
+
+func (e *Editor) saveFile() error {
+	var lines []string
+	for _, line := range e.content {
+		lines = append(lines, string(line))
+	}
+
+	err := os.WriteFile(e.fileName, []byte(strings.Join(lines, "\n")), 0644)
+	if err != nil {
+		e.statusMessage = "Could not save file: " + err.Error()
+		return err
+	}
+
+	e.statusMessage = "File saved successfully!"
+	return nil
 }
 
 func (e *Editor) loadFile(fileName string) error {
@@ -52,6 +71,19 @@ func (e *Editor) loadFile(fileName string) error {
 	return scanner.Err()
 }
 
+func (e *Editor) drawStatusBar() {
+	width, height := e.screen.Size()
+	style := tcell.StyleDefault.Reverse(true)
+
+	for i := 0; i < width; i++ {
+		e.screen.SetContent(i, height-1, ' ', nil, style)
+	}
+
+	for i, r := range []rune(e.statusMessage) {
+		e.screen.SetContent(i, height-1, r, nil, style)
+	}
+}
+
 func (e *Editor) draw() {
 	e.screen.Clear()
 	for y, line := range e.content {
@@ -59,11 +91,16 @@ func (e *Editor) draw() {
 			e.screen.SetContent(x, y, r, nil, tcell.StyleDefault)
 		}
 	}
+	e.drawStatusBar()
 	e.screen.ShowCursor(e.cursorX, e.cursorY)
 }
 
 func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
 	switch ev.Key() {
+	case tcell.KeyCtrlX:
+		return true
+	case tcell.KeyCtrlS:
+		e.saveFile()
 	case tcell.KeyUp:
 		if e.cursorY > 0 {
 			e.cursorY--
@@ -87,37 +124,24 @@ func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
 			e.cursorX--
 		} else if e.cursorY > 0 {
 			newCursorX := len(e.content[e.cursorY-1])
-
 			e.content[e.cursorY-1] = append(e.content[e.cursorY-1], e.content[e.cursorY]...)
-
 			e.content = append(e.content[:e.cursorY], e.content[e.cursorY+1:]...)
-
 			e.cursorY--
 			e.cursorX = newCursorX
 		}
 	case tcell.KeyEnter:
 		line := e.content[e.cursorY]
 		restOfLine := line[e.cursorX:]
-
 		e.content[e.cursorY] = line[:e.cursorX]
-
 		newLine := restOfLine
-
 		e.content = append(e.content[:e.cursorY+1], append([][]rune{newLine}, e.content[e.cursorY+1:]...)...)
-
 		e.cursorY++
 		e.cursorX = 0
-
 	case tcell.KeyRune:
-		switch ev.Rune() {
-		case 'x':
-			return true
-		default:
-			line := e.content[e.cursorY]
-			newLine := append(line[:e.cursorX], append([]rune{ev.Rune()}, line[e.cursorX:]...)...)
-			e.content[e.cursorY] = newLine
-			e.cursorX++
-		}
+		line := e.content[e.cursorY]
+		newLine := append(line[:e.cursorX], append([]rune{ev.Rune()}, line[e.cursorX:]...)...)
+		e.content[e.cursorY] = newLine
+		e.cursorX++
 	}
 
 	if e.cursorY < len(e.content) && e.cursorX > len(e.content[e.cursorY]) {
@@ -129,13 +153,10 @@ func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
 
 func (e *Editor) Start() {
 	defer e.Finish()
-
 	for {
 		e.draw()
 		e.screen.Show()
-
 		ev := e.screen.PollEvent()
-
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			e.screen.Sync()
