@@ -1,0 +1,7 @@
+# Compiled Go binaries
+*.exe
+
+# IDE and editor specific files
+.vscode/
+.idea/
+*.swp
