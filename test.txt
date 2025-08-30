@@ -1,0 +1,3 @@
+Hello, Gedit!
+This is the second line.
+Welcome to your new editor.

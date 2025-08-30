@@ -1,17 +1,18 @@
 package editor
 
 import (
+	"bufio"
+	"os"
+
 	"github.com/gdamore/tcell/v2"
 )
 
-// Editor holds the entire state of the text editor.
 type Editor struct {
-	screen tcell.Screen
+	screen  tcell.Screen
+	content [][]rune
 }
 
-// NewEditor creates and initializes a new Editor instance.
-func NewEditor() (*Editor, error) {
-	// Initialize the screen.
+func NewEditor(fileName string) (*Editor, error) {
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return nil, err
@@ -20,43 +21,64 @@ func NewEditor() (*Editor, error) {
 		return nil, err
 	}
 
-	// Set default text style.
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 	screen.SetStyle(defStyle)
 
-	return &Editor{screen: screen}, nil
+	editor := &Editor{screen: screen}
+	if err := editor.loadFile(fileName); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	}
+
+	return editor, nil
 }
 
-// Start begins the main event loop for the editor.
+func (e *Editor) loadFile(fileName string) error {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		e.content = append(e.content, []rune(line))
+	}
+
+	return scanner.Err()
+}
+
+func (e *Editor) draw() {
+	e.screen.Clear()
+	for y, line := range e.content {
+		for x, r := range line {
+			e.screen.SetContent(x, y, r, nil, tcell.StyleDefault)
+		}
+	}
+}
+
 func (e *Editor) Start() {
-	// The defer call ensures that our Finish function is called when Start() returns.
-	// This is crucial for restoring the terminal to its normal state.
 	defer e.Finish()
 
-	// Main event loop.
 	for {
-		// Show the current state of the screen.
+		e.draw()
 		e.screen.Show()
 
-		// Poll for the next event (e.g., key press).
 		ev := e.screen.PollEvent()
 
-		// Use a type switch to handle different event types.
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			// If the screen is resized, sync to ensure the new size is used.
 			e.screen.Sync()
 		case *tcell.EventKey:
-			// For now, we only care about one key: 'q'.
-			// If the 'q' rune is pressed, we break the loop to exit.
 			if ev.Rune() == 'q' {
-				return // Exit the loop and the function.
+				return
 			}
 		}
 	}
 }
 
-// Finish cleans up the editor, restoring the terminal.
 func (e *Editor) Finish() {
 	e.screen.Fini()
 }
