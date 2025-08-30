@@ -2,17 +2,21 @@ package main
 
 import (
 	"log"
-	// We are referencing our own internal package here
+	"os"
+
 	"github.com/arit-pal/gedit/internal/editor"
 )
 
 func main() {
-	// Create a new editor instance.
-	ed, err := editor.NewEditor()
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: gedit <filename>")
+	}
+	fileName := os.Args[1]
+
+	ed, err := editor.NewEditor(fileName)
 	if err != nil {
 		log.Fatalf("Error initializing editor: %v", err)
 	}
 
-	// Start the editor. This will be our main event loop.
 	ed.Start()
 }
