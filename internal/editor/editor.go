@@ -10,6 +10,8 @@ import (
 type Editor struct {
 	screen  tcell.Screen
 	content [][]rune
+	cursorX int
+	cursorY int
 }
 
 func NewEditor(fileName string) (*Editor, error) {
@@ -57,6 +59,39 @@ func (e *Editor) draw() {
 			e.screen.SetContent(x, y, r, nil, tcell.StyleDefault)
 		}
 	}
+	e.screen.ShowCursor(e.cursorX, e.cursorY)
+}
+
+func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
+	switch ev.Key() {
+	case tcell.KeyUp:
+		if e.cursorY > 0 {
+			e.cursorY--
+		}
+	case tcell.KeyDown:
+		if e.cursorY < len(e.content)-1 {
+			e.cursorY++
+		}
+	case tcell.KeyLeft:
+		if e.cursorX > 0 {
+			e.cursorX--
+		}
+	case tcell.KeyRight:
+		if e.cursorY < len(e.content) && e.cursorX < len(e.content[e.cursorY]) {
+			e.cursorX++
+		}
+	case tcell.KeyRune:
+		switch ev.Rune() {
+		case 'x':
+			return true
+		}
+	}
+
+	if e.cursorY < len(e.content) && e.cursorX > len(e.content[e.cursorY]) {
+		e.cursorX = len(e.content[e.cursorY])
+	}
+
+	return false
 }
 
 func (e *Editor) Start() {
@@ -72,7 +107,7 @@ func (e *Editor) Start() {
 		case *tcell.EventResize:
 			e.screen.Sync()
 		case *tcell.EventKey:
-			if ev.Rune() == 'q' {
+			if quit := e.handleKeyEvent(ev); quit {
 				return
 			}
 		}
