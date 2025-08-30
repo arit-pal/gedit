@@ -80,10 +80,43 @@ func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
 		if e.cursorY < len(e.content) && e.cursorX < len(e.content[e.cursorY]) {
 			e.cursorX++
 		}
+	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		if e.cursorX > 0 {
+			line := e.content[e.cursorY]
+			e.content[e.cursorY] = append(line[:e.cursorX-1], line[e.cursorX:]...)
+			e.cursorX--
+		} else if e.cursorY > 0 {
+			newCursorX := len(e.content[e.cursorY-1])
+
+			e.content[e.cursorY-1] = append(e.content[e.cursorY-1], e.content[e.cursorY]...)
+
+			e.content = append(e.content[:e.cursorY], e.content[e.cursorY+1:]...)
+
+			e.cursorY--
+			e.cursorX = newCursorX
+		}
+	case tcell.KeyEnter:
+		line := e.content[e.cursorY]
+		restOfLine := line[e.cursorX:]
+
+		e.content[e.cursorY] = line[:e.cursorX]
+
+		newLine := restOfLine
+
+		e.content = append(e.content[:e.cursorY+1], append([][]rune{newLine}, e.content[e.cursorY+1:]...)...)
+
+		e.cursorY++
+		e.cursorX = 0
+
 	case tcell.KeyRune:
 		switch ev.Rune() {
 		case 'x':
 			return true
+		default:
+			line := e.content[e.cursorY]
+			newLine := append(line[:e.cursorX], append([]rune{ev.Rune()}, line[e.cursorX:]...)...)
+			e.content[e.cursorY] = newLine
+			e.cursorX++
 		}
 	}
 
