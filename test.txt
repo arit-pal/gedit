@@ -2,3 +2,5 @@ To-Do:
 1. status bar update after modification.
 2. support for tab key.
 3. status bar need to show proper response for file not changed and cannot save etc.
+4. scroll with mouse/touchpad.
+5. cannot search on a file edited within search.

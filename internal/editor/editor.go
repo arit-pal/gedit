@@ -16,6 +16,9 @@ type Editor struct {
 	rowOffset     int
 	fileName      string
 	statusMessage string
+	searchQuery   string
+	lastMatchX    int
+	lastMatchY    int
 }
 
 func NewEditor(fileName string) (*Editor, error) {
@@ -30,7 +33,7 @@ func NewEditor(fileName string) (*Editor, error) {
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 	screen.SetStyle(defStyle)
 
-	editor := &Editor{screen: screen, fileName: fileName}
+	editor := &Editor{screen: screen, fileName: fileName, lastMatchX: -1, lastMatchY: -1}
 	if err := editor.loadFile(fileName); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -98,17 +101,80 @@ func (e *Editor) drawStatusBar() {
 	}
 }
 
+func (e *Editor) promptUser(prompt string) (string, bool) {
+	var input []rune
+	for {
+		e.statusMessage = prompt + string(input)
+		e.draw()
+		e.screen.Show()
+
+		ev := e.screen.PollEvent()
+		switch ev := ev.(type) {
+		case *tcell.EventKey:
+			switch ev.Key() {
+			case tcell.KeyEnter:
+				return string(input), true
+			case tcell.KeyEscape:
+				e.statusMessage = ""
+				return "", false
+			case tcell.KeyBackspace, tcell.KeyBackspace2:
+				if len(input) > 0 {
+					input = input[:len(input)-1]
+				}
+			case tcell.KeyRune:
+				input = append(input, ev.Rune())
+			}
+		}
+	}
+}
+
+func (e *Editor) search() {
+	e.lastMatchX, e.lastMatchY = -1, -1
+
+	query, ok := e.promptUser("Search: ")
+	if !ok {
+		return
+	}
+	e.searchQuery = query
+
+	for y := e.cursorY; y < len(e.content); y++ {
+		line := string(e.content[y])
+		searchFromX := 0
+		if y == e.cursorY {
+			searchFromX = e.cursorX + 1
+		}
+
+		if x := strings.Index(line[searchFromX:], e.searchQuery); x != -1 {
+			e.cursorX = searchFromX + x
+			e.cursorY = y
+			e.lastMatchX = e.cursorX
+			e.lastMatchY = e.cursorY
+			e.updateScrolling()
+			e.statusMessage = ""
+			return
+		}
+	}
+
+	e.statusMessage = "Search term not found"
+}
+
 func (e *Editor) draw() {
 	e.screen.Clear()
 	_, height := e.screen.Size()
 	textHeight := height - 1
 
+	highlightStyle := tcell.StyleDefault.Reverse(true)
+
 	for y := 0; y < textHeight; y++ {
 		fileRow := y + e.rowOffset
-		if fileRow < len(e.content) {
+		if fileRow >= 0 && fileRow < len(e.content) {
 			line := e.content[fileRow]
 			for x, r := range line {
-				e.screen.SetContent(x, y, r, nil, tcell.StyleDefault)
+				style := tcell.StyleDefault
+				if fileRow == e.lastMatchY && x >= e.lastMatchX && x < e.lastMatchX+len(e.searchQuery) {
+					style = highlightStyle
+				}
+				e.screen.SetContent(x, y, r, nil, style)
 			}
 		}
 	}
@@ -123,6 +189,8 @@ func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
 		return true
 	case tcell.KeyCtrlS:
 		e.saveFile()
+	case tcell.KeyCtrlF:
+		e.search()
 	case tcell.KeyUp:
 		if e.cursorY > 0 {
 			e.cursorY--
