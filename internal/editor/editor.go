@@ -13,6 +13,7 @@ type Editor struct {
 	content       [][]rune
 	cursorX       int
 	cursorY       int
+	rowOffset     int
 	fileName      string
 	statusMessage string
 }
@@ -71,6 +72,19 @@ func (e *Editor) loadFile(fileName string) error {
 	return scanner.Err()
 }
 
+func (e *Editor) updateScrolling() {
+	_, height := e.screen.Size()
+	textHeight := height - 1
+
+	if e.cursorY < e.rowOffset {
+		e.rowOffset = e.cursorY
+	}
+
+	if e.cursorY >= e.rowOffset+textHeight {
+		e.rowOffset = e.cursorY - textHeight + 1
+	}
+}
+
 func (e *Editor) drawStatusBar() {
 	width, height := e.screen.Size()
 	style := tcell.StyleDefault.Reverse(true)
@@ -86,13 +100,21 @@ func (e *Editor) drawStatusBar() {
 
 func (e *Editor) draw() {
 	e.screen.Clear()
-	for y, line := range e.content {
-		for x, r := range line {
-			e.screen.SetContent(x, y, r, nil, tcell.StyleDefault)
+	_, height := e.screen.Size()
+	textHeight := height - 1
+
+	for y := 0; y < textHeight; y++ {
+		fileRow := y + e.rowOffset
+		if fileRow < len(e.content) {
+			line := e.content[fileRow]
+			for x, r := range line {
+				e.screen.SetContent(x, y, r, nil, tcell.StyleDefault)
+			}
 		}
 	}
+
 	e.drawStatusBar()
-	e.screen.ShowCursor(e.cursorX, e.cursorY)
+	e.screen.ShowCursor(e.cursorX, e.cursorY-e.rowOffset)
 }
 
 func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
@@ -148,10 +170,12 @@ func (e *Editor) handleKeyEvent(ev *tcell.EventKey) bool {
 		e.cursorX = len(e.content[e.cursorY])
 	}
 
+	e.updateScrolling()
 	return false
 }
 
 func (e *Editor) Start() {
+	e.updateScrolling()
 	defer e.Finish()
 	for {
 		e.draw()
