@@ -1,4 +1,4 @@
-Hello, Gedit! Hehe!
-This is the second line.
-Welcome to your new editor.
-This is very good.
+To-Do:
+1. status bar update after modification.
+2. support for tab key.
+3. status bar need to show proper response for file not changed and cannot save etc.
