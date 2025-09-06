@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/arit-pal/gedit/internal/editor"
+	"github.com/arit-pal/gedit/app"
 )
 
 func main() {
@@ -13,10 +13,12 @@ func main() {
 	}
 	fileName := os.Args[1]
 
-	ed, err := editor.NewEditor(fileName)
+	// Create a new application instance.
+	geditApp, err := app.NewApp(fileName)
 	if err != nil {
 		log.Fatalf("Error initializing editor: %v", err)
 	}
 
-	ed.Start()
+	// Start the application's main loop.
+	geditApp.Run()
 }
