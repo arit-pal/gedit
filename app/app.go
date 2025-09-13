@@ -25,10 +25,13 @@ func NewApp(fileName string) (*App, error) {
 		return nil, err
 	}
 
+	screen.EnableMouse()
+
 	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 	screen.SetStyle(defStyle)
 
 	state := editor.NewState(screen, fileName)
+	state.IsDirty = false
 
 	// Load the file content into the state.
 	content, err := file.Load(fileName)
@@ -59,6 +62,7 @@ func (a *App) Run() {
 			if quit := input.HandleKeyEvent(ev, a.state); quit {
 				return
 			}
+		case *tcell.EventMouse:
 		}
 	}
 }

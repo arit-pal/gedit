@@ -14,6 +14,7 @@ type State struct {
 	SearchQuery   string
 	LastMatchX    int
 	LastMatchY    int
+	IsDirty       bool
 }
 
 // NewState creates the initial state of the editor.

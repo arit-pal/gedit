@@ -1,6 +1,8 @@
 package view
 
 import (
+	"fmt"
+
 	"github.com/arit-pal/gedit/internal/editor"
 	"github.com/gdamore/tcell/v2"
 )
@@ -35,12 +37,34 @@ func drawStatusBar(state *editor.State) {
 	width, height := state.Screen.Size()
 	style := tcell.StyleDefault.Reverse(true)
 
+	// Clear the status bar
 	for i := 0; i < width; i++ {
 		state.Screen.SetContent(i, height-1, ' ', nil, style)
 	}
 
-	for i, r := range []rune(state.StatusMessage) {
-		state.Screen.SetContent(i, height-1, r, nil, style)
+	// If there's a transient message, show it.
+	if state.StatusMessage != "" {
+		for i, r := range []rune(state.StatusMessage) {
+			state.Screen.SetContent(i, height-1, r, nil, style)
+		}
+	} else {
+		// Otherwise, show permanent info.
+		dirtyIndicator := ""
+		if state.IsDirty {
+			dirtyIndicator = " [Modified]"
+		}
+
+		// Left side: Filename and dirty status
+		fileInfo := fmt.Sprintf("'%s'%s - %d lines", state.FileName, dirtyIndicator, len(state.Content))
+		for i, r := range []rune(fileInfo) {
+			state.Screen.SetContent(i, height-1, r, nil, style)
+		}
+
+		// Right side: Cursor position
+		cursorInfo := fmt.Sprintf("%d:%d", state.CursorY+1, state.CursorX+1)
+		for i, r := range []rune(cursorInfo) {
+			state.Screen.SetContent(width-len(cursorInfo)+i, height-1, r, nil, style)
+		}
 	}
 }
 

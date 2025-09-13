@@ -1,4 +1,5 @@
 To-Do:
-1. status bar update after modification.
-2. status bar need to show proper response for file not changed and cannot save etc.
-3. scroll with mouse/touchpad.
+1. create a test guide for qa.
+2. create the readme file.
+3. upon approval from qa merge into main.
+4. launch the tool.
