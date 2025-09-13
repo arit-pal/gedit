@@ -1,6 +1,7 @@
 package input
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/arit-pal/gedit/internal/editor"
@@ -9,9 +10,21 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+func resetSearchState(state *editor.State) {
+	state.SearchQuery = ""
+	state.LastMatchX = -1
+	state.LastMatchY = -1
+}
+
 // HandleKeyEvent processes keyboard events and modifies the editor state.
 func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
-	state.StatusMessage = "" // Clear status message on any key press
+	key := ev.Key()
+	if key != tcell.KeyCtrlF && key != tcell.KeyTab {
+		resetSearchState(state)
+	}
+
+	// Clear any non-essential status messages on a new key press.
+	state.StatusMessage = ""
 
 	switch ev.Key() {
 	case tcell.KeyCtrlX:
@@ -20,16 +33,22 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 		if err := file.Save(state.FileName, state.Content); err != nil {
 			state.StatusMessage = "Could not save file: " + err.Error()
 		} else {
-			state.StatusMessage = "File saved successfully!"
+			state.StatusMessage = fmt.Sprintf("'%s' saved successfully!", state.FileName)
 		}
 	case tcell.KeyCtrlF:
 		search(state)
 	case tcell.KeyTab:
-		line := state.Content[state.CursorY]
-		spaces := []rune{' ', ' ', ' ', ' '}
-		newLine := append(line[:state.CursorX], append(spaces, line[state.CursorX:]...)...)
-		state.Content[state.CursorY] = newLine
-		state.CursorX += 4
+		// If there's an active search, Tab finds the next match
+		if state.SearchQuery != "" && state.LastMatchY != -1 {
+			findNext(state)
+		} else {
+			// Otherwise, insert a soft tab (4 spaces)
+			line := state.Content[state.CursorY]
+			spaces := []rune{' ', ' ', ' ', ' '}
+			newLine := append(line[:state.CursorX], append(spaces, line[state.CursorX:]...)...)
+			state.Content[state.CursorY] = newLine
+			state.CursorX += 4
+		}
 	case tcell.KeyUp:
 		if state.CursorY > 0 {
 			state.CursorY--
@@ -125,11 +144,38 @@ func search(state *editor.State) {
 	}
 	state.SearchQuery = query
 
-	for y := state.CursorY; y < len(state.Content); y++ {
+	// Always start searching from the beginning of the file (y=0)
+	for y := 0; y < len(state.Content); y++ {
+		line := string(state.Content[y])
+		if x := strings.Index(line, state.SearchQuery); x != -1 {
+			// Found a match
+			state.CursorX = x
+			state.CursorY = y
+			state.LastMatchX = state.CursorX
+			state.LastMatchY = state.CursorY
+			view.UpdateScrolling(state) // Snap view to the found line
+			state.StatusMessage = ""
+			return
+		}
+	}
+
+	state.StatusMessage = fmt.Sprintf("Search: '%s' not found", query)
+}
+
+func findNext(state *editor.State) {
+	if state.SearchQuery == "" {
+		return
+	}
+
+	// Start searching from one character after the last match.
+	startY, startX := state.LastMatchY, state.LastMatchX+1
+
+	// 1. Search from the last match to the end of the file.
+	for y := startY; y < len(state.Content); y++ {
 		line := string(state.Content[y])
 		searchFromX := 0
-		if y == state.CursorY {
-			searchFromX = state.CursorX + 1
+		if y == startY {
+			searchFromX = startX
 		}
 		if x := strings.Index(line[searchFromX:], state.SearchQuery); x != -1 {
 			state.CursorX = searchFromX + x
@@ -137,11 +183,31 @@ func search(state *editor.State) {
 			state.LastMatchX = state.CursorX
 			state.LastMatchY = state.CursorY
 			view.UpdateScrolling(state)
-			state.StatusMessage = ""
 			return
 		}
 	}
-	state.StatusMessage = "Search term not found"
+
+	// 2. Wrap around and search from the beginning of the file to the original match.
+	state.StatusMessage = fmt.Sprintf("Search wrapped to top: '%s'", state.SearchQuery)
+	for y := 0; y <= startY; y++ {
+		line := string(state.Content[y])
+		// Don't re-find the same match we started on unless it's the only one
+		endX := len(line)
+		if y == startY {
+			endX = startX
+		}
+		if x := strings.Index(line[:endX], state.SearchQuery); x != -1 {
+			state.CursorX = x
+			state.CursorY = y
+			state.LastMatchX = state.CursorX
+			state.LastMatchY = state.CursorY
+			view.UpdateScrolling(state)
+			return
+		}
+	}
+
+	// If we get here, no *other* match was found.
+	state.StatusMessage = fmt.Sprintf("No further occurrences of '%s'", state.SearchQuery)
 }
 
 func promptUser(state *editor.State, prompt string) (string, bool) {
