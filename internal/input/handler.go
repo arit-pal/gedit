@@ -34,6 +34,7 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 			state.StatusMessage = "Could not save file: " + err.Error()
 		} else {
 			state.StatusMessage = fmt.Sprintf("'%s' saved successfully!", state.FileName)
+			state.IsDirty = false
 		}
 	case tcell.KeyCtrlF:
 		search(state)
@@ -43,6 +44,7 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 			findNext(state)
 		} else {
 			// Otherwise, insert a soft tab (4 spaces)
+			state.IsDirty = true
 			line := state.Content[state.CursorY]
 			spaces := []rune{' ', ' ', ' ', ' '}
 			newLine := append(line[:state.CursorX], append(spaces, line[state.CursorX:]...)...)
@@ -66,6 +68,7 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 			state.CursorX++
 		}
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		state.IsDirty = true
 		// Smart Backspace Logic.
 		if state.CursorX > 0 {
 			isSoftTab := false
@@ -105,6 +108,7 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 			state.CursorX = newCursorX
 		}
 	case tcell.KeyDelete:
+		state.IsDirty = true
 		line := state.Content[state.CursorY]
 		if state.CursorX < len(line) {
 			state.Content[state.CursorY] = append(line[:state.CursorX], line[state.CursorX+1:]...)
@@ -113,6 +117,7 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 			state.Content = append(state.Content[:state.CursorY+1], state.Content[state.CursorY+2:]...)
 		}
 	case tcell.KeyEnter:
+		state.IsDirty = true
 		line := state.Content[state.CursorY]
 		restOfLine := line[state.CursorX:]
 		state.Content[state.CursorY] = line[:state.CursorX]
@@ -121,6 +126,7 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 		state.CursorY++
 		state.CursorX = 0
 	case tcell.KeyRune:
+		state.IsDirty = true
 		line := state.Content[state.CursorY]
 		newLine := append(line[:state.CursorX], append([]rune{ev.Rune()}, line[state.CursorX:]...)...)
 		state.Content[state.CursorY] = newLine
