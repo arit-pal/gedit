@@ -1,5 +1,0 @@
-To-Do:
-1. create a test guide for qa.
-2. create the readme file.
-3. upon approval from qa merge into main.
-4. launch the tool.
