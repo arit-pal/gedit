@@ -26,6 +26,10 @@ func HandleKeyEvent(ev *tcell.EventKey, state *editor.State) (quit bool) {
 	// Clear any non-essential status messages on a new key press.
 	state.StatusMessage = ""
 
+	if len(state.Content) == 0 {
+		state.Content = append(state.Content, []rune{})
+	}
+
 	switch ev.Key() {
 	case tcell.KeyCtrlX:
 		return true
